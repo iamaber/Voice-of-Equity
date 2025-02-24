@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 
 # Initialize session state for storing data
 if 'df' not in st.session_state:
@@ -60,7 +59,8 @@ elif page == "File Upload":
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
             else:
-                df = pd.read_excel(uploaded_file, engine='openpyxl')
+                # Read Excel file without specifying the engine
+                df = pd.read_excel(uploaded_file)
             
             # Check required columns
             required_columns = ['Location', 'Profession', 'Category', 'Description']
