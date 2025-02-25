@@ -16,10 +16,10 @@ CITY_COORDS = {
     "Dhaka": (23.8103, 90.4125)
 }
 
-# Initialize session state
+# Initialize session state without the "Category" feature
 if 'df' not in st.session_state:
     st.session_state.df = pd.DataFrame(columns=[
-        'Date', 'Location', 'Profession', 'Category', 'Description',
+        'Date', 'Location', 'Profession', 'Description',
         'Latitude', 'Longitude'
     ])
 
@@ -69,7 +69,7 @@ def plot_predictions(pred_df):
         color="Protest_Probability",
         size="Protest_Probability",
         hover_name="Location",
-        hover_data=["Category", "Profession", "Description"],
+        hover_data=["Profession", "Description"],
         zoom=5.5,
         center={"lat": 23.6850, "lon": 90.3563},
         title="Protest Probability Heatmap",
@@ -98,19 +98,14 @@ if page == "Predict Protests":
         
         if prediction_type == "Single Entry Prediction":
             with st.form("single_prediction"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    location = st.selectbox("Location", list(CITY_COORDS.keys()))
-                    profession = st.text_input("Profession")
-                with col2:
-                    category = st.text_input("Category")
-                    description = st.text_area("Problem Description")
+                location = st.selectbox("Location", list(CITY_COORDS.keys()))
+                profession = st.text_input("Profession")
+                description = st.text_area("Problem Description")
                 
                 if st.form_submit_button("Predict"):
                     input_data = pd.DataFrame([{
                         'Location': location,
                         'Profession': profession,
-                        'Category': category,
                         'Description': description,
                         'Latitude': CITY_COORDS[location][0],
                         'Longitude': CITY_COORDS[location][1]
@@ -145,7 +140,7 @@ if page == "Predict Protests":
                     pred_df = add_coordinates(pred_df)
                     
                     if not all(col in pred_df.columns for col in 
-                              ['Location', 'Profession', 'Category', 'Description']):
+                              ['Location', 'Profession', 'Description']):
                         st.error("Missing required columns in uploaded data")
                         st.stop()
                         
@@ -177,14 +172,6 @@ if page == "Predict Protests":
                     
                     st.subheader("Geographic Risk Analysis")
                     st.plotly_chart(plot_predictions(pred_df))
-                    
-                    st.subheader("High Risk Categories")
-                    high_risk = pred_df[pred_df['Protest_Risk'] == 'High']
-                    if not high_risk.empty:
-                        st.plotly_chart(px.bar(high_risk['Category'].value_counts(),
-                                              title="Most Common Categories in High Risk Cases"))
-                    else:
-                        st.info("No high risk cases predicted")
                         
                 except Exception as e:
                     st.error(f"Prediction failed: {str(e)}")
@@ -193,23 +180,18 @@ if page == "Manual Entry":
     st.header("Manual Data Entry")
     
     with st.form("manual_entry"):
-        col1, col2 = st.columns(2)
-        with col1:
-            date = st.date_input("Date", datetime.today())
-            location = st.selectbox("Location", list(CITY_COORDS.keys()))
-        with col2:
-            profession = st.text_input("Profession")
-            category = st.text_input("Category")
+        date = st.date_input("Date", datetime.today())
+        location = st.selectbox("Location", list(CITY_COORDS.keys()))
+        profession = st.text_input("Profession")
         description = st.text_area("Problem Description")
         
         submitted = st.form_submit_button("Add Entry")
         if submitted:
-            if all([location, profession, category, description]):
+            if all([location, profession, description]):
                 new_entry = pd.DataFrame([{
                     'Date': date.strftime("%b-%y"),
                     'Location': location,
                     'Profession': profession,
-                    'Category': category,
                     'Description': description,
                     'Latitude': CITY_COORDS.get(location, (None, None))[0],
                     'Longitude': CITY_COORDS.get(location, (None, None))[1]
@@ -243,8 +225,8 @@ elif page == "File Upload":
                 'problem_description': 'Description'
             })
             
-            # Check required columns
-            required_columns = ['Date', 'Location', 'Profession', 'Category', 'Description']
+            # Check required columns (removed Category)
+            required_columns = ['Date', 'Location', 'Profession', 'Description']
             if all(col in df.columns for col in required_columns):
                 df = add_coordinates(df)
                 st.session_state.df = pd.concat(
@@ -276,7 +258,7 @@ elif page == "View Data":
         
         if st.button("Clear All Data"):
             st.session_state.df = pd.DataFrame(columns=[
-                'Date', 'Location', 'Profession', 'Category', 'Description',
+                'Date', 'Location', 'Profession', 'Description',
                 'Latitude', 'Longitude'
             ])
             st.experimental_rerun()
@@ -297,34 +279,21 @@ elif page == "Analysis & Visualization":
         st.plotly_chart(fig, use_container_width=True)
     
     # Metrics
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         st.metric("Total Reports", len(st.session_state.df))
     with col2:
         st.metric("Unique Locations", st.session_state.df['Location'].nunique())
-    with col3:
-        st.metric("Most Frequent Category", 
-                 st.session_state.df['Category'].mode().values[0])
     
     # Time Series Analysis
     st.subheader("Reports Over Time")
     time_series = st.session_state.df.groupby('Date').size().reset_index(name='Count')
     st.line_chart(time_series.set_index('Date'))
 
-    # Top Categories/Professions
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Top 5 Categories")
-        top_cats = st.session_state.df['Category'].value_counts().head(5)
-        st.plotly_chart(px.bar(top_cats, 
-                             labels={'value': 'Count', 'index': 'Category'},
-                             color=top_cats.values,
-                             color_continuous_scale='Bluered'))
-    
-    with col2:
-        st.subheader("Top 5 Professions")
-        top_profs = st.session_state.df['Profession'].value_counts().head(5)
-        st.plotly_chart(px.bar(top_profs,
+    # Top Professions
+    st.subheader("Top 5 Professions")
+    top_profs = st.session_state.df['Profession'].value_counts().head(5)
+    st.plotly_chart(px.bar(top_profs,
                              labels={'value': 'Count', 'index': 'Profession'},
                              color=top_profs.values,
                              color_continuous_scale='Greens'))
